@@ -8,9 +8,9 @@ on:
         type: boolean
         default: false
       phase:
-        description: Run fresh cold and warm, or one rolling commit
+        description: Seed isolated caches, measure combined reuse, or validate a source change
         type: choice
-        options: [cold, commit]
+        options: [cold, warm-combined, commit]
         default: cold
       cli_version:
         description: Optional exact BoringCache CLI release or prerelease tag
@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cache-case: [uncached, maven, dependencies]
+        cache-case: ${{ fromJSON(inputs.phase == 'cold' && '["uncached","maven","dependencies"]' || '["combined"]') }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:

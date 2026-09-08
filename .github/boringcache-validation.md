@@ -18,6 +18,13 @@ are not archived in the remote build-cache case. The dependency case archives
 only `.m2/repository` and rebuilds the project. A successful build alone is not
 proof that the remote cache was reused; inspect its emitted evidence and logs.
 
+After these runs succeed, dispatch `phase=warm-combined` on the same source.
+It restores the dependency archive before configuring the remote Maven build
+cache, using separate supported Action steps for these distinct cache surfaces.
+Both steps are restore-only. The initial isolated cases show each cache's
+contribution; the combined run measures the configuration used for rolling
+changes. Each `phase=commit` run uses that combined setup and may publish.
+
 The selected upstream commits, in order, are:
 
 | Step | Upstream commit |
