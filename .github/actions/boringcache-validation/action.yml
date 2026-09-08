@@ -1,0 +1,70 @@
+name: Validate Jahia Maven caching
+description: Build GraphQL Core using one declared cache surface.
+inputs:
+  cache-case:
+    description: uncached, maven, or dependencies
+    required: true
+  phase:
+    description: cold, warm, or commit
+    required: true
+  cli-version:
+    description: Optional exact BoringCache CLI release or prerelease tag
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Record source and tools
+      shell: bash
+      run: |
+        mkdir -p validation-results
+        git merge-base HEAD origin/main > validation-results/source.txt
+        git rev-parse HEAD > validation-results/validation-commit.txt
+    - name: Install Java and Maven
+      uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+      with:
+        mise_toml: |
+          [tools]
+          java = "temurin-11.0.28+6"
+          maven = "3.9.16"
+        cache: false
+    - name: Record tool versions
+      shell: bash
+      run: mvn --version | tee validation-results/toolchain.txt
+    - name: Configure remote Maven build cache
+      if: inputs.cache-case == 'maven'
+      id: remote
+      uses: boringcache/one@e4ead12dabc993eba201c402a82e396166dade03 # v1.20.4
+      with:
+        cli-version: ${{ inputs.cli-version }}
+        mode: maven
+        trust-policy: ${{ inputs.phase == 'warm' && 'restore' || 'publish' }}
+        fail-on-cache-error: true
+        diagnostics: summary
+    - name: Restore shared Maven dependency archive
+      if: inputs.cache-case == 'dependencies'
+      id: dependencies
+      uses: boringcache/one@e4ead12dabc993eba201c402a82e396166dade03 # v1.20.4
+      with:
+        cli-version: ${{ inputs.cli-version }}
+        mode: archive
+        cache-profiles: dependencies
+        trust-policy: ${{ inputs.phase == 'warm' && 'restore' || 'publish' }}
+        fail-on-cache-error: true
+        fail-on-cache-miss: ${{ inputs.phase == 'warm' }}
+        diagnostics: summary
+    - name: Build and test the module
+      shell: bash
+      run: |
+        /usr/bin/time -v -o validation-results/build-time.txt \
+          mvn -B -U -ntp -s .github/boringcache-maven-settings.xml clean install -DskipTests=false
+    - name: Retain source, timing and Action evidence
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: ${{ inputs.cache-case }}-${{ inputs.phase }}
+        include-hidden-files: true
+        path: |
+          validation-results/
+          ${{ steps.remote.outputs.evidence-path }}
+          ${{ steps.dependencies.outputs.evidence-path }}
+        if-no-files-found: error

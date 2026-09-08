@@ -1,0 +1,82 @@
+name: BoringCache Maven validation
+run-name: Jahia Maven ${{ inputs.phase || 'cold' }} at ${{ github.sha }}
+on:
+  workflow_dispatch:
+    inputs:
+      connect:
+        description: Enroll this repository through GitHub OIDC
+        type: boolean
+        default: false
+      phase:
+        description: Run fresh cold and warm, or one rolling commit
+        type: choice
+        options: [cold, commit]
+        default: cold
+      cli_version:
+        description: Optional exact BoringCache CLI release or prerelease tag
+        type: string
+        default: ''
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: jahia-maven-validation
+  cancel-in-progress: false
+jobs:
+  connect:
+    if: inputs.connect && github.repository == 'boringcache/graphql-core' && github.ref == 'refs/heads/boringcache-validation'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Install the released CLI for one-time enrollment
+        run: curl -fsSL https://install.boringcache.com/install.sh | sh
+      - name: Connect through GitHub OIDC
+        run: boringcache ci connect --oidc-provider github-actions
+  build:
+    name: ${{ matrix.cache-case }} ${{ inputs.phase }}
+    if: ${{ !inputs.connect && github.repository == 'boringcache/graphql-core' && github.ref == 'refs/heads/boringcache-validation' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        cache-case: [uncached, maven, dependencies]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/boringcache-validation
+        with:
+          cache-case: ${{ matrix.cache-case }}
+          phase: ${{ inputs.phase }}
+          cli-version: ${{ inputs.cli_version }}
+  warm:
+    name: ${{ matrix.cache-case }} warm
+    needs: build
+    if: ${{ !inputs.connect && inputs.phase == 'cold' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        cache-case: [maven, dependencies]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/boringcache-validation
+        with:
+          cache-case: ${{ matrix.cache-case }}
+          phase: warm
+          cli-version: ${{ inputs.cli_version }}

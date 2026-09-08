@@ -1,0 +1,13 @@
+workspace = "boringcache/jahia-validation"
+
+[adapters.maven]
+tag = "graphql-remote-20260908"
+no-git = true
+command = ["mvn", "-B", "-U", "-ntp", "-s", ".github/boringcache-maven-settings.xml", "clean", "install", "-DskipTests=false"]
+
+[entries.maven-dependencies]
+path = "~/.m2/repository"
+tag = "graphql-dependencies-20260908"
+
+[profiles.dependencies]
+entries = ["maven-dependencies"]
