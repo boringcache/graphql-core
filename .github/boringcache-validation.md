@@ -29,8 +29,12 @@ The selected upstream commits, in order, are:
 | 4 | 70804ecfa1a2db4fcc6c24bf2bb1c09e6773f6ba |
 | 5 | d9b15234120555136ae675f5d3f54151f31c04bb |
 
-Merge one upstream commit at a time into this branch using a normal merge,
-then dispatch `phase=commit` and wait for it to finish before advancing again.
+Apply each upstream first-parent change in order with `git cherry-pick --no-commit`
+(add `-m 1` for a merge commit). Update `.github/boringcache-source` to that
+original upstream SHA and commit both changes together with a signed commit.
+This preserves the organization's linear-history requirement. Verify the source
+matches the recorded upstream tree outside the validation files, then dispatch
+`phase=commit` and wait for it to finish before advancing again.
 Keep both cache tags unchanged throughout the sequence. An interrupted or
 failed cold seed must be investigated before calling a later run warm.
 

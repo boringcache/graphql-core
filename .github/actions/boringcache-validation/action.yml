@@ -17,7 +17,7 @@ runs:
       shell: bash
       run: |
         mkdir -p validation-results
-        git merge-base HEAD origin/main > validation-results/source.txt
+        cat .github/boringcache-source > validation-results/source.txt
         git rev-parse HEAD > validation-results/validation-commit.txt
     - name: Install Java and Maven
       uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
